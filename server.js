@@ -1,17 +1,24 @@
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const methodOverride = require('method-override');
-const path = require('path');
+const cors = require('cors');
+const userRoutes = require('./routes/user.routes');
+const adminRoutes = require('./routes/admin.routes');
+const categoryUserRoutes = require('./routes/categoryUser.routes');
+const categoryAdminRoutes = require('./routes/categoryAdmin.routes');
+const authRoutes = require('./routes/auth.routes');
+const errorHandler = require('./middleware/error');
 
 const app = express();
+
+// CORS configuration
+app.use(cors({
+  origin: process.env.FRONTEND_URL, // Vue dev server
+  credentials: true,
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(methodOverride('_method'));
-
-// EJS view engine setup
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
 
 // Environment variables
 const PORT = process.env.PORT || 3000;
@@ -23,47 +30,19 @@ mongoose.connect(MONGODB_URI, {
   useUnifiedTopology: true,
 });
 
-// Schema + Model
-const BookSchema = new mongoose.Schema({
-  title: String,
-  author: String,
-  year: Number,
-});
-const Book = mongoose.model('Book', BookSchema);
-
-// CREATE
-app.get('/books/new', (req, res) => {
-  res.render('new');
+// Health check
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', service: 'news-api' });
 });
 
-app.post('/books', async (req, res) => {
-  const book = new Book(req.body);
-  await book.save();
-  res.redirect('/books');
-});
+// Routes
+app.use('/user', userRoutes);
+app.use('/user', categoryUserRoutes);
+app.use('/admin', authRoutes);
+app.use('/admin', adminRoutes);
+app.use('/admin', categoryAdminRoutes);
 
-// READ ALL
-app.get('/books', async (req, res) => {
-  const books = await Book.find();
-  res.render('index', { books });
-});
-
-// READ ONE
-app.get('/books/:id/edit', async (req, res) => {
-  const book = await Book.findById(req.params.id);
-  res.render('edit', { book });
-});
-
-// UPDATE
-app.put('/books/:id', async (req, res) => {
-  await Book.findByIdAndUpdate(req.params.id, req.body);
-  res.redirect('/books');
-});
-
-// DELETE
-app.delete('/books/:id', async (req, res) => {
-  await Book.findByIdAndDelete(req.params.id);
-  res.redirect('/books');
-});
+// Error handler (keep at end)
+app.use(errorHandler);
 
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
